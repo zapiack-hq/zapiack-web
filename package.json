@@ -1,0 +1,65 @@
+{
+  "name": "@zapiack/web",
+  "version": "0.1.0",
+  "description": "Push notifications for websites with Zapiack: registration, clicks and what happens after a tap.",
+  "license": "MIT",
+  "author": "Zapiack <support@zapiack.com>",
+  "homepage": "https://docs.zapiack.com/push/client-sdks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zapiack-hq/zapiack-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zapiack-hq/zapiack-web/issues"
+  },
+  "keywords": [
+    "zapiack",
+    "push",
+    "web push",
+    "notifications",
+    "service worker"
+  ],
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./zapiack-sw.js": "./dist/zapiack-sw.js",
+    "./package.json": "./package.json"
+  },
+  "unpkg": "./dist/zapiack.global.js",
+  "jsdelivr": "./dist/zapiack.global.js",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "fake-indexeddb": "^6.2.6",
+    "tsup": "^9.0.0",
+    "typescript": "~5.9.0",
+    "vitest": "^5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
