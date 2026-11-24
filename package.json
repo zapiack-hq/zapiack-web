@@ -1,6 +1,6 @@
 {
   "name": "@zapiack/web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Push notifications for websites with Zapiack: registration, clicks and what happens after a tap.",
   "license": "MIT",
   "author": "Zapiack <support@zapiack.com>",
@@ -35,7 +35,17 @@
       }
     },
     "./zapiack-sw.js": "./dist/zapiack-sw.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./calls": {
+      "import": {
+        "types": "./dist/calls.d.mts",
+        "default": "./dist/calls.mjs"
+      },
+      "require": {
+        "types": "./dist/calls.d.ts",
+        "default": "./dist/calls.js"
+      }
+    }
   },
   "unpkg": "./dist/zapiack.global.js",
   "jsdelivr": "./dist/zapiack.global.js",
@@ -55,11 +65,20 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "fake-indexeddb": "^6.2.6",
+    "mediasoup-client": "^3.18.0",
     "tsup": "^9.0.0",
     "typescript": "~5.9.0",
     "vitest": "^5.0.5"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "peerDependencies": {
+    "mediasoup-client": "^3.18.0"
+  },
+  "peerDependenciesMeta": {
+    "mediasoup-client": {
+      "optional": true
+    }
   }
 }

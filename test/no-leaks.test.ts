@@ -45,7 +45,10 @@ describe('what ships', () => {
     if (built.length === 0) return;
     const found: string[] = [];
     for (const file of built) {
-      const text = readFileSync(file, 'utf8');
+      // The calls bundle carries mediasoup-client, whose SDP builder writes two standard placeholder addresses into every offer: the
+      // dummy connection address ("c=IN IP4 127.0.0.1") and the session origin ("o=- ... 0.0.0.0"). WebRTC requires both and ignores
+      // them. Only those two exact forms are let through; they are not addresses of ours.
+      const text = readFileSync(file, 'utf8').replace(/ip:\s*"127\.0\.0\.1",\s*version:\s*4/g, '').replace(/address:\s*"0\.0\.0\.0",\s*ipVer:\s*4/g, '');
       for (const [what, pattern] of BANNED) {
         const match = pattern.exec(text);
         if (match) found.push(`${file.replace(root, '')}: ${what}: "${match[0]}"`);

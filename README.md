@@ -90,6 +90,94 @@ await ZapiackPush.unsubscribe();
 
 `init` options: `serviceWorkerPath` (default `/zapiack-sw.js`), `serviceWorkerScope`, `autoRegister` (default `true`), `appVersion`.
 
+## Realtime
+
+Live messages over one WebSocket: chat, live updates, presence, and signalling for calls. It is separate from push; use either or both.
+
+Your app never holds an API key. Your **server** asks Zapiack for a short-lived token for the signed-in user (the key needs the **Realtime** scope, or no scope limits), and hands it to the app:
+
+```bash
+curl -X POST https://api.zapiack.com/v1/realtime/tokens \
+  -H "Authorization: Bearer $ZAPIACK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"userId":"user_42","capabilities":{"chat:*":["subscribe","publish","presence"]}}'
+# → { "token": "eyJ…", "expiresAt": "…", "url": "wss://rt.zapiack.com/?token=eyJ…" }
+```
+
+`capabilities` says what that user may do on which channels (`*` matches anything): `subscribe`, `publish`, `presence`, `history`, `signal`. Tokens last an hour unless you ask for less (`ttlSeconds`, at most a day).
+
+In the page or app:
+
+```ts
+import { ZapiackRealtime } from '@zapiack/web';
+
+const rt = new ZapiackRealtime({
+  // Ask YOUR server for a token. Called on every connect, so an expired token is replaced.
+  getToken: () => fetch('/api/realtime-token').then((r) => r.text()),
+});
+await rt.connect();
+
+const stop = rt.subscribe('chat:room-1', (m) => console.log(m.from, m.data));
+await rt.publish('chat:room-1', { text: 'hi' }, { persist: true }); // resolves when the server confirms
+
+const here = rt.presence('chat:room-1');
+here.enter({ name: 'Ann' });
+here.onChange(({ action, member }) => console.log(action, member.user));
+rt.signal('call-7', otherConnectionId, 'offer', { sdp }); // to one connection
+rt.onError((e) => console.warn(e.code, e.message));
+```
+
+- **Reconnects by itself** with a growing, jittered pause, fetches a fresh token each time, re-joins every channel and replays what it missed since the last message it saw (publish with `persist` to make a message replayable). Messages already seen are not repeated.
+- **Sends made while offline** wait (up to 100) and go out in order once the line is back.
+- A message that cannot be replayed because the client was away longer than the project's retention is reported as an error with code 410: reload that channel's history over REST.
+- The project can refuse a client for good (Realtime switched off, or the connection was removed in the dashboard). Then `connect` fails with code 403 and it does not retry.
+
+## Voice & Video
+
+Audio, video and screen sharing in a room: a 1:1 call, a group, or a live room with a stage and an audience. It is its own import, so apps that only use push or messaging do not download the media code.
+
+```bash
+npm i mediasoup-client   # only apps that use calls need it
+```
+
+Your **server** creates the room and mints a token for each person (the key needs the **Calls** scope):
+
+```bash
+curl -X POST https://api.zapiack.com/v1/calls/rooms -H "Authorization: Bearer $ZAPIACK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Team standup","mode":"group"}'
+curl -X POST https://api.zapiack.com/v1/calls/tokens -H "Authorization: Bearer $ZAPIACK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"roomId":"<the room id from above>","identity":"ada","role":"speaker"}'
+```
+
+In the page:
+
+```ts
+import { ZapiackCall } from '@zapiack/web/calls';
+
+const call = new ZapiackCall({ getToken: () => fetch('/api/call-token').then((r) => r.text()) });
+call.on('track', ({ identity, source, stream }) => {
+  // source is 'audio', 'video' or 'screen'
+  const el = document.createElement(source === 'audio' ? 'audio' : 'video');
+  el.autoplay = true; el.playsInline = true; el.srcObject = stream;
+  document.body.append(el);
+});
+call.on('trackEnded', ({ identity, source }) => removeElement(identity, source));
+call.on('error', (e) => console.warn(e.reason, e.message));
+
+await call.join();
+await call.enableMicrophone();
+await call.enableCamera();
+await call.shareScreen();          // asks which screen or window
+await call.setMuted('audio', true); // the others are told
+await call.leave();                // stops the camera and microphone
+```
+
+- What a person may send comes from their token. A **listener** can only receive: `enableMicrophone()` rejects with reason `forbidden`.
+- It **reconnects by itself** when the network drops, takes the person's place in the room again and picks up what changed. If they were away too long the call ends and `ended` fires.
+- Room events can occasionally be missed, so the call **re-asks the server who is in the room every 30 seconds** and catches up (`new ZapiackCall({ getToken, resyncMs: 30000 })`; `0` turns it off).
+- `call.stats()` returns bytes, packets, loss and jitter for each track being received, for a quality indicator.
+- `call.members`, `call.sending`, `call.role` and `call.state` say who is here, what you are sending, what you may do and where the call is.
+- A script tag works too: `dist/zapiack-calls.global.js` exposes `ZapiackCallsBundle.ZapiackCall`.
+
 ## Good to know
 
 - Events are kept on the device and sent when the network allows, so a closed tab or a stopped service worker loses nothing.
